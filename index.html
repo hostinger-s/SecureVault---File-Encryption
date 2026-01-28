@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureVault - File Encryption</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        /* Animasi Loading */
+        .loader {
+            border-top-color: #3B82F6;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+
+        @keyframes spinner {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-900 text-slate-200 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-blue-500 tracking-tighter">Secure<span class="text-white">Vault</span>
+        </h1>
+        <p class="text-slate-400 mt-2">Enkripsi & Dekripsi File Langsung di Browser</p>
+    </div>
+
+    <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-700">
+
+        <div class="flex space-x-2 mb-6 bg-slate-900 p-1 rounded-lg">
+            <button onclick="switchMode('encrypt')" id="btn-encrypt"
+                class="flex-1 py-2 rounded-md font-semibold transition bg-blue-600 text-white">🔒 Kunci File</button>
+            <button onclick="switchMode('decrypt')" id="btn-decrypt"
+                class="flex-1 py-2 rounded-md font-semibold transition text-slate-400 hover:text-white">🔓 Buka
+                File</button>
+        </div>
+
+        <div id="encrypt-panel">
+            <div class="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-blue-500 transition cursor-pointer relative"
+                onclick="document.getElementById('file-input').click()">
+                <p class="text-slate-400 text-sm">Klik untuk pilih file (Gambar/PDF/Txt)<br><span
+                        class="text-xs text-slate-500">(Maksimal 5MB agar browser tidak lag)</span></p>
+                <input type="file" id="file-input" class="hidden" onchange="handleFileSelect(this, 'label-file')">
+                <p id="label-file" class="mt-2 text-blue-400 font-mono text-xs truncate"></p>
+            </div>
+
+            <div class="mt-4">
+                <label class="block text-xs uppercase text-slate-500 font-bold mb-1">Password Pengunci</label>
+                <input type="password" id="pass-enc"
+                    class="w-full bg-slate-900 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-blue-500 transition"
+                    placeholder="Rahasia banget...">
+            </div>
+
+            <button onclick="processFile('encrypt')"
+                class="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg shadow-lg transition flex justify-center items-center">
+                <span>Enkripsi & Download</span>
+            </button>
+        </div>
+
+        <div id="decrypt-panel" class="hidden">
+            <div class="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-green-500 transition cursor-pointer relative"
+                onclick="document.getElementById('file-input-dec').click()">
+                <p class="text-slate-400 text-sm">Pilih file yang terkunci (.encrypted)</p>
+                <input type="file" id="file-input-dec" class="hidden"
+                    onchange="handleFileSelect(this, 'label-file-dec')">
+                <p id="label-file-dec" class="mt-2 text-green-400 font-mono text-xs truncate"></p>
+            </div>
+
+            <div class="mt-4">
+                <label class="block text-xs uppercase text-slate-500 font-bold mb-1">Masukkan Password</label>
+                <input type="password" id="pass-dec"
+                    class="w-full bg-slate-900 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-green-500 transition"
+                    placeholder="Passwordnya apa?">
+            </div>
+
+            <button onclick="processFile('decrypt')"
+                class="w-full mt-6 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg shadow-lg transition flex justify-center items-center">
+                <span>Dekripsi & Pulihkan</span>
+            </button>
+        </div>
+
+        <div id="loading" class="hidden mt-4 text-center">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mb-2 mx-auto"></div>
+            <p class="text-xs text-slate-400">Sedang memproses kriptografi...</p>
+        </div>
+
+    </div>
+
+    <p class="mt-8 text-xs text-slate-600">Menggunakan Algoritma AES-256 via CryptoJS.</p>
+
+    <script>
+        // --- LOGIKA PERGANTIAN MODE ---
+        function switchMode(mode) {
+            const encPanel = document.getElementById('encrypt-panel');
+            const decPanel = document.getElementById('decrypt-panel');
+            const btnEnc = document.getElementById('btn-encrypt');
+            const btnDec = document.getElementById('btn-decrypt');
+
+            // Reset semua inputan dan label file
+            document.querySelectorAll('input').forEach(i => i.value = '');
+            document.querySelectorAll('p[id^="label-file"]').forEach(p => p.innerText = '');
+
+            if (mode === 'encrypt') {
+                encPanel.classList.remove('hidden');
+                decPanel.classList.add('hidden');
+                btnEnc.className = "flex-1 py-2 rounded-md font-semibold transition bg-blue-600 text-white shadow-lg";
+                btnDec.className = "flex-1 py-2 rounded-md font-semibold transition text-slate-400 hover:text-white";
+            } else {
+                encPanel.classList.add('hidden');
+                decPanel.classList.remove('hidden');
+                btnEnc.className = "flex-1 py-2 rounded-md font-semibold transition text-slate-400 hover:text-white";
+                btnDec.className = "flex-1 py-2 rounded-md font-semibold transition bg-green-600 text-white shadow-lg";
+            }
+        }
+
+        function handleFileSelect(input, labelId) {
+            if (input.files.length > 0) {
+                document.getElementById(labelId).innerText = "File: " + input.files[0].name;
+            }
+        }
+
+        // --- LOGIKA PROSES FILE ---
+        function processFile(action) {
+            const fileInput = action === 'encrypt' ? document.getElementById('file-input') : document.getElementById('file-input-dec');
+            const password = action === 'encrypt' ? document.getElementById('pass-enc').value : document.getElementById('pass-dec').value;
+            const loading = document.getElementById('loading');
+
+            if (fileInput.files.length === 0) return alert("Pilih file dulu!");
+            if (!password) return alert("Password tidak boleh kosong!");
+
+            const file = fileInput.files[0];
+
+            // Warning buat file besar (karena diproses di RAM browser)
+            if (file.size > 5 * 1024 * 1024) {
+                if (!confirm("File ini lebih besar dari 5MB. Browser mungkin akan sedikit nge-lag. Lanjutkan?")) return;
+            }
+
+            loading.classList.remove('hidden');
+
+            const reader = new FileReader();
+
+            // Saat file selesai dibaca jadi data biner (Data URL)
+            reader.onload = function (e) {
+                setTimeout(() => { // Kasih delay dikit biar loading kelihatan
+                    try {
+                        const fileContent = e.target.result; // Ini string base64 panjang
+
+                        let result = null;
+                        let filename = "downloaded";
+                        let mimetype = "text/plain";
+
+                        if (action === 'encrypt') {
+                            // 1. ENKRIPSI
+                            // enkripsi seluruh string Base64 file tersebut
+                            const encrypted = CryptoJS.AES.encrypt(fileContent, password).toString();
+
+                            // Bungkus hasil enkripsi jadi file text biasa
+                            result = encrypted;
+                            filename = file.name + ".encrypted";
+                            mimetype = "text/plain";
+
+                        } else {
+                            // 2. DEKRIPSI
+                            const decryptedBytes = CryptoJS.AES.decrypt(fileContent, password);
+                            const decryptedString = decryptedBytes.toString(CryptoJS.enc.Utf8);
+
+                            if (!decryptedString.startsWith("data:")) {
+                                throw new Error("Password Salah");
+                            }
+
+                            result = decryptedString; // Ini kembali jadi DataURL
+                            // ambil nama file asli dari user input sebelumnya atau default
+                            filename = file.name.replace(".encrypted", "");
+                            // Kalau nama aslinya gak ada ekstensi, browser akan nebak sendiri nanti
+                        }
+
+                        downloadFile(result, filename, action === 'decrypt');
+
+                    } catch (err) {
+                        alert("Gagal! Password salah atau file rusak.");
+                        console.error(err);
+                    } finally {
+                        loading.classList.add('hidden');
+                    }
+                }, 100);
+            };
+
+            if (action === 'encrypt') {
+                // Baca file sebagai Data URL (Base64)
+                reader.readAsDataURL(file);
+            } else {
+                // Kalau dekripsi, file inputnya adalah text file (.encrypted), jadi baca as Text
+                reader.readAsText(file);
+            }
+        }
+
+        // Fungsi Helper untuk memicu download otomatis
+        function downloadFile(content, filename, isBase64) {
+            const link = document.createElement('a');
+
+            if (isBase64) {
+                // Kalau hasil dekripsi (Base64 DataURL), langsung pakai Data URL
+                link.href = content;
+            } else {
+                // Kalau hasil enkripsi (Text), buat Blob dulu baru download sebagai file
+                const blob = new Blob([content], { type: 'text/plain' });
+                link.href = URL.createObjectURL(blob);
+            }
+
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+
+</html>
